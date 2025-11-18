@@ -1,0 +1,180 @@
+{
+  "name": "Smart Expense Management",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Expense Report ",
+        "formDescription": "Generating an expense report ",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "field",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d5a05461-bd8f-49a6-897c-0399ef21a393",
+      "name": "On form submission",
+      "webhookId": "a86fa23c-100c-46b8-8349-27213c85d495"
+    },
+    {
+      "parameters": {
+        "jsCode": "let results = [];\nconst items = $(\"On form submission\").all()\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "b267c2f3-4936-4612-bcb1-b4094ec8860b",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "$binary",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        352,
+        0
+      ],
+      "id": "5547886b-5b78-407f-8881-c86c8edbf25a",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "text": "These are receipt images.  Extract date and total amount only and display them in json form.  Other results are not needed.  The example of json format is {\"month:\" 10, \"day\": 1, \"total_amount:\" 1000} .\n",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "f82ee2cb-3d09-4a69-ab8a-c02e3321e825",
+      "name": "Analyze image",
+      "credentials": {
+        "openAiApi": {
+          "id": "r40NDvrmYsBbuUhj",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nvar results = [];\nfor (const item of $input.all()) {\n  const json_text = \n    JSON.parse(item.json[0].content[0].text.replace(\"\\`\\`\\`json\", \"\").replace(\"\\`\\`\\`\", \"\" ));\n  results.push(json_text);\n}\n\n// return [{ data: results }]\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        208
+      ],
+      "id": "6517d5ed-c447-4348-a978-da51b657998b",
+      "name": "extract results"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst ExcelJS = require('exceljs');\n\nconst workbook = new ExcelJS.Workbook();\n\nworkbook.xlsx.readFile('/var/www/html/reports/original.xlsx')\n  .then(() => {\n    const ws = workbook.getWorksheet(1);\n    var loc = 19;\n    for (const item of $input.all()) {\n      const loc_string =loc.toString();\n      ws.getCell('B'+loc_string).value = item.json.month;\n      ws.getCell('D'+loc_string).value = item.json.day;\n      ws.getCell('R'+loc_string).value = item.json.total_amount;\n      loc += 1\n    }\n    return workbook.xlsx.writeFile('/var/www/html/reports/test_updated.xlsx');\n  })\n  .then(() => {\n    console.log('Done!');\n  });\n\nreturn { 'json' : { done: true }}\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        208
+      ],
+      "id": "e4ad2c33-3613-42e8-83fe-7f3f7ad2b91e",
+      "name": "Save an excel file"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "extract results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract results": {
+      "main": [
+        [
+          {
+            "node": "Save an excel file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "9191d9a2-b1f6-4e1d-8fa9-a5df8b678d22",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "196c140910c4febddf2ff1796f1f7d7aac23243c8b3acc9316ff66e6a617907e"
+  },
+  "id": "lgqIJtmtQCe7dShc",
+  "tags": []
+}
